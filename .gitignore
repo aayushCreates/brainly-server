@@ -5,3 +5,7 @@ architecture.txt
 futureUpgrade.txt
 
 
+
+/src/generated/prisma
+
+.env
