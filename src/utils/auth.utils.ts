@@ -21,7 +21,7 @@ export const getJWT = async (id: string, email: string)=> {
 }
 
 
-export const validToken = async (token: string)=> {
+export const validateToken = async (token: string)=> {
     const secretKey = process.env.JWT_SECRET as string;
     const decoded = jwt.verify(token, secretKey);
 
