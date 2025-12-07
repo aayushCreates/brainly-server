@@ -9,3 +9,5 @@ futureUpgrade.txt
 /src/generated/prisma
 
 .env
+
+/src/generated/prisma
