@@ -190,3 +190,49 @@ export const deleteContent = async (
     });
   }
 };
+
+export const getContentBySharedLink = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user = req.user;
+    const linkHash = req.params.id as string;
+    const currDate = new Date();
+
+    const linkData = await prisma.shareLink.findUnique({
+      where: {
+        hash: linkHash
+      },
+      include: {
+        content: true
+      }
+    });
+    if(!linkData) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid shared link"
+      })
+    };
+
+    if(linkData.expiresAt && linkData.expiresAt < currDate) {
+      return res.status(410).json({
+        success: false,
+        message: "Link Expired"
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Content got successfully",
+      data: linkData?.content
+    });
+  } catch (err) {
+    console.log("Error in getting content details by shared link: " + err);
+    return res.status(500).json({
+      success: false,
+      message: "Error in getting content details by shared link",
+    });
+  }
+};
