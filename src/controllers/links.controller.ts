@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from 'crypto';
-import { PrismaClient } from "../generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -11,9 +11,6 @@ export const getLink = async (req: Request, res: Response, next: NextFunction)=>
         const { permission, expiredAt } = req.body;
 
         const token = crypto.randomBytes(32).toString("base64url"); // URL-safe Base64 string
-
-
-
 
     }catch(err) {
         console.log("Error in getting shareable link", err);
@@ -38,7 +35,7 @@ export const createLink = async (req: Request, res: Response, next: NextFunction
                 permission: permission ? permission : "VIEW", 
                 contentId: contentId,
                 expiresAt: expiredAt,
-                userId: user?.id
+                userId: user?.id as string
             }
         });
 

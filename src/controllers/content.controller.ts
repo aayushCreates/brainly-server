@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { PrismaClient } from "../generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -25,7 +25,7 @@ export const addContent = async (
         type: type,
         url: url,
         tags: tags,
-        userId: user?.id,
+        userId: user?.id as string,
       },
     });
 
@@ -88,7 +88,7 @@ export const getAllContent = async (
 
     const allContents = await prisma.content.findMany({
       where: {
-        userId: user?.id,
+        userId: user?.id as string,
       },
     });
     if (allContents.length === 0) {
@@ -125,7 +125,6 @@ export const updateContent = async (
     const content = await prisma.content.findUnique({
       where: {
         id: id,
-        userId: user.id,
       },
     });
     if (!content) {
@@ -144,7 +143,6 @@ export const updateContent = async (
     const updatedContent = await prisma.content.update({
       where: {
         id: id,
-        userId: user.id,
       },
       data: updatedData,
     });
@@ -174,7 +172,6 @@ export const deleteContent = async (
     const deletedContent = await prisma.content.delete({
       where: {
         id: id,
-        userId: user.id,
       },
     });
 
