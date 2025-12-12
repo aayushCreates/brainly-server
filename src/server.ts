@@ -16,7 +16,7 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3030"],
+    origin: ["http://localhost:3000", "http://localhost:3030"]
   })
 );
 
@@ -26,7 +26,7 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/content", contentRouter);
 app.use("/api/v1/share", linkRouter);
 
-const port = process.env.NEXT_PUBLIC_PORT || 5000;
+const port = process.env.PORT || 5000;
 app.listen(port, () => {
   console.log("server is running on the port " + port + "🚀");
 });

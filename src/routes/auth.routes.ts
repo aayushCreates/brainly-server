@@ -4,9 +4,9 @@ import { login, logout, register } from "../controllers/auth.controller";
 
 const authRouter = Router();
 
-authRouter.get('/register', register);
-authRouter.get('/login', login);
-authRouter.get('/logout', logout);
+authRouter.post('/register', register);
+authRouter.post('/login', login);
+authRouter.post('/logout', logout);
 
 
 export default authRouter;
