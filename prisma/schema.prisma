@@ -55,11 +55,12 @@ model ShareLink {
   id         String     @id @default(uuid())
   hash       String     @unique
   permission Permission @default(VIEW)
-  expiresAt  DateTime?
   createdAt  DateTime   @default(now())
 
   contentId String
   content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  sharedUsersEmail String[]
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
