@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Permission {
+enum Permission {1
   VIEW
   EDIT
 }
@@ -39,7 +39,7 @@ model Content {
   type      Type
   title     String
   url       String?
-  tags      Tag[]
+  tags      String[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -49,18 +49,6 @@ model Content {
   shareLinks ShareLink[]
 
   @@index([userId])
-}
-
-model Tag {
-  id        String   @id @default(uuid())
-  title     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  contentId String
-  content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
-
-  @@index([contentId])
 }
 
 model ShareLink {
