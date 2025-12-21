@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser";
 
 import authRouter from "./routes/auth.routes";
 import contentRouter from "./routes/content.routes";
-import linkRouter from "./routes/links.routes";
+import shareRouter from "./routes/share.routes";
 
 const app = express();
 dotenv.config();
@@ -24,7 +24,7 @@ app.use(morgan("dev"));
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/content", contentRouter);
-app.use("/api/v1/share", linkRouter);
+app.use("/api/v1/share", shareRouter);
 
 const port = process.env.PORT || 5000;
 app.listen(port, () => {

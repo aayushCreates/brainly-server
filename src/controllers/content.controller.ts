@@ -10,6 +10,7 @@ export const addContent = async (
 ) => {
   try {
     const user = req.user;
+    console.log("body content: ", req.body);
 
     const { title, type, url, tags } = req.body;
     if (!title || !type || !url || !tags) {
@@ -28,6 +29,7 @@ export const addContent = async (
         userId: user?.id as string,
       },
     });
+    console.log("add content: ", addContent);
 
     res.status(200).json({
       success: true,
