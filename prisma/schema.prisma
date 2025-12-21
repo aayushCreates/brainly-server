@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Permission {1
+enum Permission {
   VIEW
   EDIT
 }
@@ -52,19 +52,33 @@ model Content {
 }
 
 model ShareLink {
-  id         String     @id @default(uuid())
-  hash       String     @unique
-  permission Permission @default(VIEW)
-  createdAt  DateTime   @default(now())
+  id   String @id @default(uuid())
+  hash String @unique
 
   contentId String
   content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
 
-  sharedUsersEmail String[]
-
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  sharedUsers SharedUser[]
+
+  createdAt DateTime @default(now())
+
   @@index([contentId])
   @@index([userId])
+}
+
+model SharedUser {
+  id         String     @id @default(uuid())
+  email      String
+  permission Permission
+
+  shareId String
+  share   ShareLink @relation(fields: [shareId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([email, shareId])
+  @@index([email])
 }
