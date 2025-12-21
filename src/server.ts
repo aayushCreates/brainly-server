@@ -3,6 +3,9 @@ import dotenv from "dotenv";
 import cors from "cors";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
+import passport from "passport";
+
+import "./utils/passport.utils";
 
 import authRouter from "./routes/auth.routes";
 import contentRouter from "./routes/content.routes";

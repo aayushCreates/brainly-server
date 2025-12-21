@@ -82,21 +82,21 @@ export const login = async (
       },
     });
     if (!user) {
-      res.status(400).json({
-        success: true,
-        message: "Invalid Creadentials",
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Credentials",
       });
     }
 
-    const isValidPassword = validatePassword(
+    const isValidPassword = await validatePassword(
       password,
       user?.password as string
     );
 
     if (!isValidPassword) {
-      res.status(400).json({
-        success: true,
-        message: "Invalid Creadentials",
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Credentials",
       });
     }
 
@@ -108,7 +108,7 @@ export const login = async (
 
     res.status(200).json({
       success: true,
-      message: "User registered successfully",
+      message: "User logged in successfully",
       data: {
         id: user?.id,
         name: user?.name,
@@ -144,5 +144,82 @@ export const logout = async (
       success: false,
       message: "Server Error in loggedout user, please try again",
     });
+  }
+};
+
+export const googleAuth = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user = req.user as any;
+
+    if (!user) {
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/login?error=google_failed`
+      );
+    }
+
+    const isUserExists = await prisma.user.findUnique({
+      where: {
+        googleId: user?.googleId,
+      },
+    });
+
+    if (isUserExists) {
+      const token = await getJWT(
+        isUserExists.id as string,
+        isUserExists.email as string
+      );
+
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/home?token=${token}`
+      );
+    }
+
+    const userEmailExists = await prisma.user.findUnique({
+      where: {
+        email: user?.email,
+      },
+    });
+
+    if (userEmailExists) {
+      const updatedUser = await prisma.user.update({
+        where: {
+          email: userEmailExists.email as string,
+        },
+        data: {
+          googleId: user?.googleId,
+        },
+      });
+      const token = await getJWT(
+        updatedUser.id as string,
+        updatedUser.email as string
+      );
+
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/home?token=${token}`
+      );
+    }
+
+    const newUser = await prisma.user.create({
+      data: {
+        googleId: user?.googleId,
+        email: user?.email,
+        name: user?.name,
+      },
+    });
+
+    const token = await getJWT(newUser.id as string, newUser.email as string);
+    
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/home?token=${token}`
+    );
+  } catch (err) {
+    console.log("Error in the google login", err);
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/login?error=server_error`
+    );
   }
 };

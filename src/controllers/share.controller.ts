@@ -75,19 +75,26 @@ export const shareLink = async (req: Request, res: Response, next: NextFunction)
             userId: user.id
         });
 
+        console.log("process.env.FRONTEND_URL", process.env.FRONTEND_URL);
+
         const link = `${process.env.FRONTEND_URL}/share/${shareLinkRecord.hash}`;
 
-        await transporter.sendMail({
-            from: process.env.HOST_MAIL,
-            to: email,
-            subject: `${user.name} shared content with you`, 
-            text: `You have been invited to view content. Click here: ${link}.${description ? ` Message: ${description}` : ""}`
-        });
+        // await transporter.sendMail({
+        //     from: process.env.HOST_MAIL,
+        //     to: email,
+        //     subject: `${user.name} shared content with you`, 
+        //     text: `You have been invited to view content. Click here: ${link}.${description ? ` Message: ${description}` : ""}`
+        // });
 
         res.status(200).json({
             success: true,
             message: "Shared link successfully via mail",
-            data: shareLinkRecord
+            data: {
+                success: true,
+                link: link,
+                permission: shareLinkRecord.permission,
+                sharedMail: shareLinkRecord.sharedUserMail
+            }
         });
 
     }catch(err) {
