@@ -31,6 +31,12 @@ enum Priority {
   LOW
 }
 
+enum MessageRole {
+  USER
+  AI
+  SYSTEM
+}
+
 model User {
   id       String  @id @default(uuid())
   name     String?
@@ -43,9 +49,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  contents   Content[]
-  shareLinks ShareLink[]
-  Task       Task[]
+  contents     Content[]
+  shareLinks   ShareLink[]
+  Task         Task[]
+  conversation Conversation[]
 
   @@index([email])
 }
@@ -126,4 +133,29 @@ model Task {
 
   @@index([userId])
   @@index([dueDate])
+}
+
+model Conversation {
+  id       String    @id @default(uuid())
+  messages message[]
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model message {
+  id      String      @id @default(uuid())
+  role    MessageRole
+  content String
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId])
 }
