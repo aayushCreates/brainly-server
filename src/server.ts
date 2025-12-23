@@ -31,7 +31,7 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/content", contentRouter);
 app.use("/api/v1/share", shareRouter);
 app.use("/api/v1/profile", profileRouter);
-app.use("/api/v1/task", taskRouter);
+app.use("/api/v1/tasks", taskRouter);
 
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
