@@ -19,20 +19,33 @@ enum Type {
   AUDIO
 }
 
-model User {
-  id        String   @id @default(uuid())
-  name      String?
-  email     String?   @unique
-  phone     String?   @unique
-  password  String?
+enum TaskStatus {
+  COMPLETED
+  PENDING
+  REJECTED
+}
 
-  googleId  String?  @unique
-  
+enum Priorty {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model User {
+  id       String  @id @default(uuid())
+  name     String?
+  email    String? @unique
+  phone    String? @unique
+  password String?
+
+  googleId String? @unique
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   contents   Content[]
   shareLinks ShareLink[]
+  Task       Task[]
 
   @@index([email])
 }
@@ -50,6 +63,7 @@ model Content {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   shareLinks ShareLink[]
+  Task       Task[]
 
   @@index([userId])
 }
@@ -84,4 +98,31 @@ model SharedUser {
 
   @@unique([email, shareId])
   @@index([email])
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  status      TaskStatus @default(PENDING)
+  dueDate     DateTime?
+  startTime   DateTime?
+  endTime     DateTime?
+
+  priority Priorty @default(LOW)
+
+  contentId String?
+  content   Content? @relation(fields: [contentId], references: [id], onDelete: SetNull)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  calendarEventId String?
+  calendarSynced  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([dueDate])
 }
