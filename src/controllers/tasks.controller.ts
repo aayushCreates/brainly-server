@@ -1,3 +1,5 @@
+import { embeddingQueue } from "@/queue/embedding.queue";
+import { embeddingWorker } from "@/workers/embedding.worker";
 import { PrismaClient } from "@prisma/client";
 import { Request, Response, NextFunction } from "express";
 
@@ -106,9 +108,22 @@ export const addTask = async (
       }
     });
 
+      await embeddingQueue.add("EMBED_KNOWLEDGE", {
+        userId: user?.id,
+        sourceType: "task",
+        sourceId: newTask.id,
+        text: `Task: ${title ? title : newTask?.title} - ${description ? description : newTask?.description}`
+      }, {
+        attempts: 5,
+        backoff: {
+          type: "exponential",
+          delay: 2000
+        }
+      });
+
     return res.status(200).json({
       success: true,
-      message: "Tasks added successfully",
+      message: "Task added successfully",
       data: newTask
     });
   } catch (err) {
@@ -147,7 +162,6 @@ export const updateTask = async (
 
     let finalStartTime = existedTask.startTime;
     if (startTime) {
-      // If time string provided, combine with dateBase if available
       finalStartTime = dateBase ? new Date(`${dateBase}T${startTime}`) : new Date(startTime);
     }
 
@@ -174,9 +188,24 @@ export const updateTask = async (
       }
     });
 
+    if(title || description) {
+        await embeddingQueue.add("EMBED_KNOWLEDGE", {
+          userId: user?.id,
+          sourceType: "task",
+          sourceId: existedTask.id,
+          text: `Task: ${title ? title : existedTask?.title} - ${description ? description : existedTask?.description}`
+        }, {
+          attempts: 5,
+          backoff: {
+            type: "exponential",
+            delay: 2000
+          }
+        });
+    }
+
     res.status(200).json({
       success: true,
-      message: "Task is updated successfully"
+      message: "Task and his embedding is updated successfully"
     });
   } catch (err) {
     console.log("Error in the updating task", err);
@@ -215,9 +244,16 @@ export const deleteTask = async (
       }
     });
 
+    const deleteEmbedding = await prisma.knowledgeChunk.deleteMany({
+      where: {
+        userId: user?.id,
+        taskId: id
+      }
+    });
+
     res.status(200).json({
       success: true,
-      message: "Task deleted successfully"
+      message: "Task and his embedding deleted successfully"
     });
   } catch (err) {
     console.log("Error in the deleting task");

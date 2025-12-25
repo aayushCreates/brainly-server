@@ -1,49 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
+import getEmbeddedText from "@/utils/embeddings.utils";
+import { embeddingQueue } from "@/queue/embedding.queue";
+import { embeddingWorker } from "@/workers/embedding.worker";
 
 const prisma = new PrismaClient();
-
-export const addContent = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const user = req.user;
-    console.log("body content: ", req.body);
-
-    const { title, type, url, tags } = req.body;
-    if (!title || !type || !url || !tags) {
-      return res.status(400).json({
-        success: false,
-        message: "Enter the required informations",
-      });
-    }
-
-    const addContent = await prisma.content.create({
-      data: {
-        title: title,
-        type: type,
-        url: url,
-        tags: tags,
-        userId: user?.id as string,
-      },
-    });
-    console.log("add content: ", addContent);
-
-    res.status(200).json({
-      success: true,
-      message: "Content is added successfully",
-      data: addContent,
-    });
-  } catch (err) {
-    console.log("Error in adding content: " + err);
-    return res.status(500).json({
-      success: false,
-      message: "Error in adding content",
-    });
-  }
-};
 
 export const getContent = async (
   req: Request,
@@ -114,6 +75,64 @@ export const getAllContent = async (
   }
 };
 
+export const addContent = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user = req.user;
+    console.log("body content: ", req.body);
+
+    const { title, type, url, tags } = req.body;
+    if (!title || !type || !url || !tags) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter the required informations",
+      });
+    }
+
+    const addContent = await prisma.content.create({
+      data: {
+        title: title,
+        type: type,
+        url: url,
+        tags: tags,
+        userId: user?.id as string,
+      },
+    });
+
+    await embeddingQueue.add(
+      "EMBED_KNOWLEDGE",
+      {
+        userId: user?.id,
+        sourceType: "content",
+        sourceId: addContent.id,
+        text: `Content: ${title}`,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 2000,
+        },
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Content is added successfully",
+      data: addContent,
+    });
+  } catch (err) {
+    console.log("Error in adding content: " + err);
+    return res.status(500).json({
+      success: false,
+      message: "Error in adding content",
+    });
+  }
+};
+
 export const updateContent = async (
   req: Request,
   res: Response,
@@ -149,6 +168,25 @@ export const updateContent = async (
       data: updatedData,
     });
 
+    if(title) {
+      await embeddingQueue.add(
+        "EMBED_KNOWLEDGE",
+        {
+          userId: user?.id,
+          sourceType: "content",
+          sourceId: content.id,
+          text: `Content: ${title}`,
+        },
+        {
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 2000,
+          },
+        }
+      );
+    }
+
     res.status(200).json({
       success: true,
       message: "Content is updated successfully",
@@ -177,6 +215,13 @@ export const deleteContent = async (
       },
     });
 
+    const deleteEmbedding = await prisma.knowledgeChunk.deleteMany({
+      where: {
+        userId: user?.id,
+        contentId: id,
+      },
+    });
+
     res.status(200).json({
       success: true,
       message: "Content is deleted successfully",
@@ -202,30 +247,30 @@ export const getContentBySharedLink = async (
 
     const linkData = await prisma.shareLink.findUnique({
       where: {
-        hash: linkHash
+        hash: linkHash,
       },
       include: {
-        content: true
-      }
+        content: true,
+      },
     });
-    if(!linkData) {
+    if (!linkData) {
       return res.status(404).json({
         success: false,
-        message: "Invalid shared link"
-      })
-    };
+        message: "Invalid shared link",
+      });
+    }
 
-    if(linkData.expiresAt && linkData.expiresAt < currDate) {
+    if (linkData.expiresAt && linkData.expiresAt < currDate) {
       return res.status(410).json({
         success: false,
-        message: "Link Expired"
-      })
+        message: "Link Expired",
+      });
     }
 
     res.status(200).json({
       success: true,
       message: "Content got successfully",
-      data: linkData?.content
+      data: linkData?.content,
     });
   } catch (err) {
     console.log("Error in getting content details by shared link: " + err);
