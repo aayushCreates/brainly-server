@@ -163,8 +163,8 @@ model message {
 model KnowledgeChunk {
   id        String  @id @default(uuid())
   userId    String
-  contentId String?
-  taskId    String?
+  contentId String? @unique
+  taskId    String? @unique
   text      String
   embedding Float[]
 
