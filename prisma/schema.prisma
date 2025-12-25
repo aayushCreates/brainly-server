@@ -161,8 +161,10 @@ model message {
 }
 
 model KnowledgeChunk {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   userId    String
+  contentId String?
+  taskId    String?
   text      String
   embedding Float[]
 
