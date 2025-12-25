@@ -159,3 +159,14 @@ model message {
 
   @@index([conversationId])
 }
+
+model KnowledgeChunk {
+  id        String   @id @default(uuid())
+  userId    String
+  text      String
+  embedding Float[]
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
