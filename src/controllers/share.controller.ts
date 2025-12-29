@@ -75,8 +75,6 @@ export const shareLink = async (req: Request, res: Response, next: NextFunction)
             userId: user.id
         });
 
-        console.log("process.env.FRONTEND_URL", process.env.FRONTEND_URL);
-
         const link = `${process.env.FRONTEND_URL}/share/${shareLinkRecord.hash}`;
 
         // await transporter.sendMail({

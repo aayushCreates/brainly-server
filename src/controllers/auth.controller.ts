@@ -102,8 +102,6 @@ export const login = async (
 
     const jwt = await getJWT(user?.id as string, user?.email as string);
 
-    console.log("jwt", jwt);
-
     // res.cookie("token", jwt, cookieOptions);
 
     res.status(200).json({
