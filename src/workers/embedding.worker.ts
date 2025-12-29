@@ -5,29 +5,59 @@ import { Worker } from "bullmq";
 
 const prisma = new PrismaClient();
 
-export const embeddingWorker = new Worker("data-embedding", async (job)=> {
+export const embeddingWorker = new Worker(
+  "data-embedding",
+  async (job) => {
     const { userId, sourceType, sourceId, text } = job.data;
 
-    const embeddedText = await getEmbeddedText(text);
+    let embeddedText: number[];
+    try {
+      embeddedText = await getEmbeddedText(text);
+    } catch (err) {
+      console.error("Embedding generation failed:", err);
+      throw err;
+    }
+    const vectorString = `[${embeddedText.join(",")}]`;
 
-    await prisma.knowledgeChunk.upsert({
-        where: {
-          contentId: sourceType.toLowerCase() === "content" ? sourceId : null,
-          taskId: sourceType.toLowerCase() === "task" ? sourceId : null
-        },
-        update: {
-          text,
-          embedding: embeddedText
-        },
-        create: {
-          userId,
-          text,
-          embedding: embeddedText,
-          contentId: sourceType.toLowerCase() === "content" ? sourceId : null,
-          taskId: sourceType.toLowerCase() === "task" ? sourceId : null
-        }
-      });
-}, {
+    try {
+      if (sourceType.toLowerCase() === "content") {
+        await prisma.$executeRaw`
+    INSERT INTO "KnowledgeChunk"
+    ("userId", "contentId", "text", "embedding")
+    VALUES (
+      ${userId},
+      ${sourceId},
+      ${text},
+      ${vectorString}::vector
+    )
+    ON CONFLICT ("contentId")
+    DO UPDATE SET
+      "text" = EXCLUDED."text",
+      "embedding" = EXCLUDED."embedding";
+  `;
+      } else if (sourceType.toLowerCase() === "task") {
+        await prisma.$executeRaw`
+        INSERT INTO "KnowledgeChunk"
+        ("userId", "taskId", "text", "embedding")
+        VALUES (
+          ${userId},
+          ${sourceId},
+          ${text},
+          ${vectorString}::vector
+        )
+        ON CONFLICT ("taskId")
+        DO UPDATE SET
+          "text" = EXCLUDED."text",
+          "embedding" = EXCLUDED."embedding";
+      `;
+      }
+    } catch (err) {
+      console.error("Error executing raw SQL for embedding:", err);
+      throw err;
+    }
+  },
+  {
     connection: redisConnection,
-    concurrency: 5
-})
+    concurrency: 5,
+  }
+);
