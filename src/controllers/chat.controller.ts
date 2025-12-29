@@ -1,8 +1,14 @@
 import { brainChatQueue } from "@/queue/brainChat.queue";
-import { PrismaClient } from "@prisma/client";
 import { Request, Response, NextFunction } from "express";
+import { QueueEvents } from "bullmq";
+import { redisConnection } from "@/config/redis.config";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+
+const queueEvents = new QueueEvents("brain-chat", {
+  connection: redisConnection,
+});
 
 export const getAllConversations = async (
   req: Request,
@@ -16,22 +22,30 @@ export const getAllConversations = async (
       where: {
         userId: user?.id,
       },
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        messages: {
+            take: 1,
+            orderBy: {
+                createdAt: 'desc'
+            }
+        }
+      }
     });
-    if (Array.isArray(conversations) && conversations.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Conversations are not found",
-      });
-    }
 
     res.status(200).json({
       success: true,
-      message: "Conversations got successfully",
-      data: conversations
+      message: "Conversations fetched successfully",
+      data: conversations,
     });
   } catch (err) {
-    console.log("Error in getting all conversations");
-    return res.status(500).json("Server error in getting all conversations");
+    console.log("Error in getting all conversations", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error in getting all conversations",
+    });
   }
 };
 
@@ -45,30 +59,40 @@ export const getConversation = async (
     const id = req.params.id as string;
 
     const conversation = await prisma.conversation.findFirst({
-        where: {
-            id: id,
-            userId: user?.id
-        }
+      where: {
+        id: id,
+        userId: user?.id,
+      },
+      include: {
+        messages: {
+            orderBy: {
+                createdAt: 'asc'
+            }
+        },
+      },
     });
     if (!conversation) {
-        return res.status(404).json({
-          success: false,
-          message: "Conversation is not found",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Conversation not found",
+      });
     }
 
     res.status(200).json({
       success: true,
-      message: "Conversation got successfully",
-      data: conversation
+      message: "Conversation fetched successfully",
+      data: conversation,
     });
   } catch (err) {
-    console.log("Error in getting conversation");
-    return res.status(500).json("Server error in getting conversation");
+    console.log("Error in getting conversation", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error in getting conversation",
+    });
   }
 };
 
-export const createConversations = async (
+export const createConversation = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -78,19 +102,21 @@ export const createConversations = async (
 
     const newConversation = await prisma.conversation.create({
       data: {
-        userId: user?.id
-      }
+        userId: user?.id!,
+      },
     });
 
-    res.status(200).json({
+    res.status(201).json({
       success: true,
       message: "New conversation created successfully",
-      data: newConversation
-    })
-
+      data: newConversation,
+    });
   } catch (err) {
-    console.log("Error in creating conversation");
-    return res.status(500).json("Server error in creating conversation");
+    console.log("Error in creating conversation", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error in creating conversation",
+    });
   }
 };
 
@@ -106,41 +132,45 @@ export const getAllConversationMessages = async (
     const conversation = await prisma.conversation.findFirst({
       where: {
         id: id,
-        userId: user?.id
+        userId: user?.id,
       },
       select: {
         id: true,
-        messages : {
+        messages: {
+          orderBy: {
+            createdAt: "asc",
+          },
           select: {
             id: true,
             role: true,
-            content: true
-          }
-        }
-      }
+            content: true,
+            createdAt: true,
+          },
+        },
+      },
     });
-    if(!conversation) {
+    if (!conversation) {
       return res.status(404).json({
         success: false,
-        message: "Conversation not found"
-      })
+        message: "Conversation not found",
+      });
     }
 
     res.status(200).json({
       success: true,
-      message: "Conversation got successfully",
-      data: conversation
+      message: "Conversation messages fetched successfully",
+      data: conversation,
     });
-
   } catch (err) {
-    console.log("Error in getting all conversation messages");
-    return res
-      .status(500)
-      .json("Server error in getting all conversation messages");
+    console.log("Error in getting all conversation messages", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error in getting all conversation messages",
+    });
   }
 };
 
-export const saveConversationMessage = async (
+export const sendConversationMessage = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -150,56 +180,76 @@ export const saveConversationMessage = async (
     const id = req.params.id as string;
     const { content } = req.body;
 
-    if(!content || typeof content !== "string" || content.trim() === "") {
+    if (!content || typeof content !== "string" || content.trim() === "") {
       return res.status(400).json({
         success: false,
-        message: "Message content is required"
+        message: "Message content is required",
       });
     }
 
     const conversation = await prisma.conversation.findFirst({
       where: {
         id: id,
-        userId: user?.id
-      }
+        userId: user?.id,
+      },
     });
     if (!conversation) {
       return res.status(404).json({
         success: false,
-        message: "Conversation is not found",
+        message: "Conversation not found",
       });
-  }
-
-  const newMessage = await prisma.message.create({
-    data: {
-      role: "USER",
-      content: content.trim(),
-      conversationId: id
     }
-  });
 
+    const newMessage = await prisma.message.create({
+      data: {
+        role: "USER",
+        content: content.trim(),
+        conversationId: id,
+      },
+    });
 
-  await brainChatQueue.add("PROCESS_MESSAGE", {
-    conversationId: id,
-    messageId: newMessage.id,
-    userId: user?.id
-  }, {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 2000
+    const job = await brainChatQueue.add(
+      "PROCESS_MESSAGE",
+      {
+        conversationId: id,
+        messageId: newMessage.id,
+        userId: user?.id,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 2000,
+        },
+      }
+    );
+
+    try {
+      const aiResponse = await job.waitUntilFinished(queueEvents);
+
+      res.status(201).json({
+        success: true,
+        message: "New message added successfully",
+        data: {
+          aiResponse: aiResponse,
+          userPrompt: newMessage
+        },
+      });
+    } catch (jobError) {
+      console.error("Job failed or timed out:", jobError);
+      res.status(201).json({
+        success: true,
+        message: "Message sent, but AI response is pending or failed.",
+        data: newMessage,
+      });
     }
-  });
-
-    res.status(200).json({
-      success: true,
-      message: "New message is added in conversation successfully",
-      data: newMessage
-    })
 
   } catch (err) {
-    console.log("Error in creating conversation");
-    return res.status(500).json("Server error in creating conversation");
+    console.log("Error in sending message", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error in sending message",
+    });
   }
 };
 
@@ -212,32 +262,29 @@ export const deleteConversation = async (
     const user = req.user;
     const id = req.params.id as string;
 
-    const conversation = await prisma.conversation.findFirst({
+    const result = await prisma.conversation.deleteMany({
       where: {
         id: id,
-        userId: user?.id
-      }
+        userId: user?.id,
+      },
     });
-    if(!conversation) {
+
+    if (result.count === 0) {
       return res.status(404).json({
         success: false,
-        message: "Conversation not found"
-      })
+        message: "Conversation not found",
+      });
     }
 
-    const deletedConversation = await prisma.conversation.delete({
-      where: {
-        id: id
-      }
-    });
-
     res.status(200).json({
-        success: true,
-        message: "Conversation deleted successfully"
-    })
-
+      success: true,
+      message: "Conversation deleted successfully",
+    });
   } catch (err) {
-    console.log("Error in deleting conversation");
-    return res.status(500).json("Server error in deleting conversation");
+    console.log("Error in deleting conversation", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error in deleting conversation",
+    });
   }
 };
