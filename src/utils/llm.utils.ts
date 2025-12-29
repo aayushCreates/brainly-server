@@ -1,30 +1,19 @@
 import OpenAI from "openai";
 
-const client = new OpenAI({
-    apiKey: process.env.OPEN_AI_API_KEY
+const openai = new OpenAI({
+  apiKey: process.env.OPEN_AI_API_KEY,
 });
 
-export const callLLM = async (prompt: string)=> {
-    try {
-        const response = await client.responses.create({
-            model: "gpt-4o-mini",
-            input: [
-              {
-                role: "user",
-                content: [
-                    {
-                        type: "input_text",
-                        text: prompt
-                    }
-                ]
-              }
-            ],
-            temperature: 0.3
-        });
+export const callLLM = async (prompt: string) => {
+  try {
+    const completion = await openai.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "gpt-4o-mini",
+    });
 
-        return response.output_text;
-
-    }catch(err) {
-        throw new Error("Error in calling llm for genearting response");
-    }
-}
+    return completion.choices[0].message.content || "";
+  } catch (err: any) {
+    console.log("Error in calling llm", err);
+    throw new Error(`Error in calling llm: ${err.message || err}`);
+  }
+};
