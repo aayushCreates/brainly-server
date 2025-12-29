@@ -1,10 +1,8 @@
 import { embeddingQueue } from "@/queue/embedding.queue";
-import { embeddingWorker } from "@/workers/embedding.worker";
 import { PrismaClient } from "@prisma/client";
 import { Request, Response, NextFunction } from "express";
 
 const prisma = new PrismaClient();
-
 export const getAllTasks = async (
   req: Request,
   res: Response,
@@ -121,11 +119,11 @@ export const addTask = async (
         }
       });
 
-    return res.status(200).json({
-      success: true,
-      message: "Task added successfully",
-      data: newTask
-    });
+        return res.status(200).json({
+          success: true,
+          message: "Task added and indexed successfully",
+          data: newTask
+        });
   } catch (err) {
     console.log("Error in the adding task");
     return res.status(500).json({

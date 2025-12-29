@@ -1,8 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
-import getEmbeddedText from "@/utils/embeddings.utils";
 import { embeddingQueue } from "@/queue/embedding.queue";
-import { embeddingWorker } from "@/workers/embedding.worker";
 
 const prisma = new PrismaClient();
 
@@ -82,7 +80,6 @@ export const addContent = async (
 ) => {
   try {
     const user = req.user;
-    console.log("body content: ", req.body);
 
     const { title, type, url, tags } = req.body;
     if (!title || !type || !url || !tags) {
@@ -118,12 +115,12 @@ export const addContent = async (
         },
       }
     );
-
-    res.status(200).json({
-      success: true,
-      message: "Content is added successfully",
-      data: addContent,
-    });
+    
+      res.status(201).json({
+        success: true,
+        message: "Content added and indexed successfully",
+        data: addContent,
+      });
   } catch (err) {
     console.log("Error in adding content: " + err);
     return res.status(500).json({
@@ -174,7 +171,7 @@ export const updateContent = async (
         {
           userId: user?.id,
           sourceType: "content",
-          sourceId: content.id,
+          sourceId: id,
           text: `Content: ${title}`,
         },
         {
@@ -189,7 +186,8 @@ export const updateContent = async (
 
     res.status(200).json({
       success: true,
-      message: "Content is updated successfully",
+      message: "Content updated successfully",
+      data: updatedContent,
     });
   } catch (err) {
     console.log("Error in updating content details: " + err);

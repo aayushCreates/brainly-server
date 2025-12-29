@@ -6,12 +6,15 @@ import cookieParser from "cookie-parser";
 import passport from "passport";
 
 import "./utils/passport.utils";
+import "./workers/brainChat.worker";
+import "./workers/embedding.worker"
 
 import authRouter from "./routes/auth.routes";
 import contentRouter from "./routes/content.routes";
 import shareRouter from "./routes/share.routes";
 import profileRouter from "./routes/profile.routes";
 import taskRouter from "./routes/tasks.routes";
+import chatRouter from "./routes/chat.routes";
 
 const app = express();
 dotenv.config();
@@ -32,6 +35,7 @@ app.use("/api/v1/content", contentRouter);
 app.use("/api/v1/share", shareRouter);
 app.use("/api/v1/profile", profileRouter);
 app.use("/api/v1/tasks", taskRouter);
+app.use("/api/v1/chat", chatRouter);
 
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
