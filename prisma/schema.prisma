@@ -58,13 +58,13 @@ model User {
 }
 
 model Content {
-  id        String   @id @default(uuid())
-  type      Type
-  title     String
-  url       String?
-  tags      String[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  type        Type
+  title       String
+  url         String?
+  tags        String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -166,7 +166,8 @@ model KnowledgeChunk {
   contentId String? @unique
   taskId    String? @unique
   text      String
-  embedding Float[]
+
+  embedding Unsupported("vector(768)")
 
   createdAt DateTime @default(now())
 
