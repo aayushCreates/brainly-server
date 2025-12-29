@@ -12,74 +12,80 @@ export const brainChatWorker = new Worker(
   async (job) => {
     const { conversationId, userId, messageId } = job.data;
 
-    // Fetch conversation context
-    const conversation = await prisma.conversation.findFirst({
-      where: {
-        id: conversationId,
-        userId: userId,
-      },
-      include: {
-        messages: {
-          orderBy: { createdAt: "asc" },
-          take: 10,
+    try {
+        const conversation = await prisma.conversation.findFirst({
+        where: {
+            id: conversationId,
+            userId: userId,
         },
-      },
-    });
-    if (!conversation) {
-      throw new Error("Conversation not found");
+        include: {
+            messages: {
+            orderBy: { createdAt: "asc" },
+            take: 20,
+            },
+        },
+        });
+
+
+        if (!conversation) {
+            console.error(`[BrainChatWorker] Conversation ${conversationId} not found`);
+            throw new Error("Conversation not found");
+        }
+
+        const userMessage = conversation.messages.find(
+            (m) => m.id === messageId
+        );
+
+        if (!userMessage) {
+            console.error(`[BrainChatWorker] Message ${messageId} not found in conversation`);
+            throw new Error("User message not found in conversation");
+        }
+
+        const queryEmbedding = await getEmbeddedText(
+            userMessage?.content as string
+        );
+
+        
+        const vectorQuery = `[${queryEmbedding.join(",")}]`;
+
+        const relevantChunks = await prisma.$queryRaw`
+        SELECT text
+        FROM "KnowledgeChunk"
+        WHERE "userId" = ${userId}
+        ORDER BY embedding <-> ${vectorQuery}::vector
+        LIMIT 5
+      ` as { text: string }[];
+
+        //  GET Prompt
+        const prompt = getPrompt({
+            userQuestion: userMessage.content,
+            relevantChunks: relevantChunks || [],
+            recentMessages: conversation.messages,
+        });
+
+        const aiResponseOutput = await callLLM(prompt);
+
+        if (!aiResponseOutput) {
+            throw new Error("Received empty response from LLM");
+        }
+
+        const saveAiResponseMessage = await prisma.message.create({
+        data: {
+            role: "AI",
+            content: aiResponseOutput,
+            conversationId: conversationId,
+        },
+        });
+
+        return saveAiResponseMessage;
+
+    } catch (error) {
+        console.error("[BrainChatWorker] Job failed:", error);
+        throw error;
     }
-
-    const userMessage = conversation.messages.find(
-      (m: any) => m.id === messageId
-    );
-    if (!userMessage) {
-      throw new Error("User message not found in conversation");
-    }
-    
-    //  Embedding Query for vector searching
-    const queryEmbedding = await getEmbeddedText(userMessage?.content as string);
-
-    // Vector Searching
-    // <-> = distance operator
-    // Smaller distance = more similar
-
-    // const relevantChunks = await prisma.$queryRaw<
-    //   { text: string }[]
-    // >`SELECT text FROM "KnowledgeChunk" WHERE "userId"=${userId} ORDER BY embedding <-> ${queryEmbedding} LIMIT 5`;
-    
-    const relevantChunks = await prisma.$queryRaw<
-      { text: string }[]
-    >`SELECT text
-      FROM "KnowledgeChunk"
-      WHERE "userId" = ${userId}
-      AND embedding <-> ${queryEmbedding} < 0.7
-      ORDER BY embedding <-> ${queryEmbedding}
-      LIMIT 5`;
-
-    //  GET Prompt
-    const prompt = getPrompt({
-      userQuestion: userMessage.content,
-      relevantChunks: relevantChunks,
-      recentMessages: conversation.messages,
-    });
-
-    // Call LLM
-    const aiResponseOutpt = await callLLM(prompt);
-    // RAG = Retrieval first, Generation second
-
-    // Save AI response message
-    const saveAiResponseMessage = await prisma.message.create({
-      data: {
-        role: "AI",
-        content: aiResponseOutpt,
-        conversationId: conversationId,
-      },
-    });
-
-    console.log("Processing job", job.id);
   },
   {
     connection: redisConnection,
-    concurrency: 5, // One worker will process 5 jobs in parallel
+    concurrency: 5, 
   }
 );
